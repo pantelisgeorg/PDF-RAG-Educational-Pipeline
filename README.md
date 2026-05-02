@@ -387,7 +387,7 @@ gptoss_rag/
 
 ---
 
-## 📄 License
+##  MIT License
 
 This project is provided for **educational purposes**. Feel free to fork, modify, and use it in classrooms, workshops, or personal learning.
 
