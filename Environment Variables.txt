@@ -1,0 +1,8 @@
+ Environment Variables
+Variable	Purpose
+PDF_PATH	Default path for PDF processing (not used in API, but kept for consistency)
+OLLAMA_BASE_URL	Ollama API URL (http://localhost:11434)
+EMBEDDING_MODEL	Ollama model name (nomic-embed-text-v2-moe:latest)
+QDRANT_URL	Qdrant endpoint (http://localhost:6333)
+COLLECTION_NAME	Name of the Qdrant collection (default: pdf_knowledge_base)
+OPENAI_API_KEY	Your OpenAI API key – required for GPT‑4o‑mini

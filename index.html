@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PDF RAG Educational Pipeline</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --warn: #d97706;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --muted: #64748b;
+    }
+    * { box-sizing: border-box; }
+    html, body { user-select: text; -webkit-user-select: text; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      margin: 0;
+      padding: 2rem 1rem;
+      color: var(--text);
+      line-height: 1.55;
+    }
+    .container { max-width: 1000px; margin: 0 auto; }
+    h1 { text-align: center; margin-bottom: 0.25rem; font-size: 1.9rem; }
+    .subtitle { text-align: center; color: var(--muted); margin-bottom: 2rem; font-size: 1.05rem; }
+
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      border: 1px solid var(--border);
+    }
+    .card h2 {
+      margin-top: 0;
+      font-size: 1.15rem;
+      color: #0f172a;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0.5rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Flowchart */
+    .flow-wrap { display: flex; flex-direction: column; gap: 1.4rem; }
+    .flow-phase-title {
+      text-align: center;
+      font-weight: 700;
+      color: #475569;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .flow-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem 0.9rem;
+      row-gap: 0.9rem;
+    }
+    .flow-node {
+      background: #eef2ff;
+      border: 2px solid #6366f1;
+      color: #312e81;
+      padding: 0.6rem 1rem;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.88rem;
+      text-align: center;
+      box-shadow: 0 2px 0 #4338ca;
+      transition: transform .1s;
+      white-space: nowrap;
+    }
+    .flow-node:hover { transform: translateY(-2px); }
+    .flow-node.dedup {
+      background: #fff7ed;
+      border-color: #f97316;
+      color: #7c2d12;
+      box-shadow: 0 2px 0 #c2410c;
+    }
+    .flow-node.mmr {
+      background: #f0fdf4;
+      border-color: #22c55e;
+      color: #14532d;
+      box-shadow: 0 2px 0 #15803d;
+    }
+    .flow-arrow {
+      font-size: 1.4rem;
+      color: #6366f1;
+      font-weight: 900;
+      padding: 0 0.3rem;
+      line-height: 1;
+    }
+    .flow-desc {
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    /* Status badge */
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.9rem;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 0.88rem;
+      margin-left: 0.5rem;
+      border: 1px solid transparent;
+    }
+    .status.idle { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+    .status.processing { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    .status.completed { background: #dcfce7; color: #166534; border-color: #86efac; }
+    .status.error { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .status.idle .dot { background: #94a3b8; }
+    .status.processing .dot { background: #f59e0b; animation: pulse 1.2s infinite; }
+    .status.completed .dot { background: #22c55e; }
+    .status.error .dot { background: #ef4444; }
+    @keyframes pulse { 0%{opacity:1} 50%{opacity:0.35} 100%{opacity:1} }
+
+    label { display: block; margin-bottom: 0.35rem; font-weight: 600; color: #334155; }
+    input[type=file], textarea {
+      width: 100%;
+      padding: 0.65rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 1rem;
+      background: #fff;
+    }
+    textarea { resize: vertical; min-height: 80px; }
+    button {
+      padding: 0.65rem 1.4rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      background: var(--primary);
+      color: white;
+      cursor: pointer;
+      font-weight: 700;
+      transition: background .2s, transform .1s;
+    }
+    button:hover { background: var(--primary-dark); }
+    button:active { transform: translateY(1px); }
+    button:disabled { background: #93c5fd; cursor: not-allowed; }
+
+    .output {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-top: 1rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 420px;
+      overflow-y: auto;
+      font-size: 0.95rem;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    .chunks-list { max-height: 320px; overflow-y: auto; }
+    .chunk-item {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.8rem;
+      margin-bottom: 0.6rem;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      user-select: text;
+      -webkit-user-select: text;
+      position: relative;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      padding: 0.25rem 0.55rem;
+      font-size: 0.72rem;
+      background: #e2e8f0;
+      color: #334155;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .copy-btn:hover { background: #cbd5e1; }
+    .copy-btn.copied { background: #dcfce7; color: #166534; }
+    .chunk-num {
+      display: inline-block;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 6px;
+      padding: 0.15rem 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 800;
+      margin-right: 0.5rem;
+      vertical-align: middle;
+    }
+
+    /* Embedding visualizer */
+    .embedding-bars {
+      display: flex;
+      align-items: flex-end;
+      height: 140px;
+      gap: 1.5px;
+      margin-top: 0.75rem;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .e-bar {
+      flex: 1;
+      min-width: 3px;
+      background: linear-gradient(to top, #2563eb, #60a5fa);
+      border-radius: 2px 2px 0 0;
+      opacity: 0.9;
+    }
+    .dim-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.4rem;
+    }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    .hint { font-size: 0.85rem; color: var(--muted); margin-top: 0.25rem; }
+
+    .stat-row {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 0.75rem;
+    }
+    .stat-box {
+      flex: 1;
+      min-width: 120px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 0.7rem 1rem;
+      text-align: center;
+    }
+    .stat-val {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--primary);
+    }
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📚 PDF RAG Educational Pipeline</h1>
+    <p class="subtitle">Upload a PDF, inspect chunks & embeddings, and query with GPT‑4o‑mini</p>
+
+    <!-- Flowchart -->
+    <div class="card">
+      <h2>🔀 Pipeline Flowchart</h2>
+      <div class="flow-wrap">
+        <div class="flow-phase-title">📥 Ingestion Phase</div>
+        <div class="flow-row">
+          <div class="flow-node">1. Upload PDF</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node dedup">2. Hash Check</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node">3. Extract Text</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node">4. Split Chunks</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node dedup">5. Deduplicate Chunks</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node">6. Generate Embeddings</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node">7. Store in Qdrant</div>
+        </div>
+        <div class="flow-desc">
+          Document hash dedup → pypdf reads pages → RecursiveCharacterTextSplitter → chunk hash dedup → OllamaEmbeddings → QdrantVectorStore
+        </div>
+
+        <div class="flow-phase-title">🔎 Retrieval & Generation Phase</div>
+        <div class="flow-row">
+          <div class="flow-node">8. Ask Question</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node">9. Embed Query</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node">10. Retrieve Top-K</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node mmr">11. MMR Diversify</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node">12. Build Prompt</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node">13. LLM Answer</div>
+        </div>
+        <div class="flow-desc">
+          Ollama embeds query → Qdrant similarity search → <strong>MMR</strong> balances relevance vs. diversity → context + question → GPT‑4o‑mini
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- Upload -->
+      <div class="card">
+        <h2>1️⃣ Upload PDF</h2>
+        <form id="uploadForm">
+          <label for="pdfFile">Select a PDF:</label>
+          <input type="file" id="pdfFile" accept=".pdf" required />
+          <p class="hint">The file is processed in the background. Watch the status badge below.</p>
+          <br/>
+          <button type="submit" style="margin-bottom:0.8rem;">Upload & Process</button>
+          <span id="uploadStatus" class="status idle" style="margin-bottom:0.8rem;"><span class="dot"></span> No PDF uploaded yet</span>
+        </form>
+
+        <!-- Dedup stats -->
+        <div id="dedupStats" class="stat-row" style="display:none; margin-top:0.6rem;">
+          <div class="stat-box">
+            <div class="stat-val" id="statUnique">0</div>
+            <div class="stat-label">Unique Chunks</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="statRemoved">0</div>
+            <div class="stat-label">Duplicates Removed</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Query -->
+      <div class="card">
+        <h2>2️⃣ Query the Knowledge Base</h2>
+        <form id="queryForm">
+          <label for="questionInput">Ask a question:</label>
+          <textarea id="questionInput" placeholder="e.g. What is the main topic of the document?" required></textarea>
+          <br/><br/>
+          <button type="submit">Get Answer</button>
+        </form>
+        <div id="answerOutput" class="output" style="display:none;">
+          <button class="copy-btn" style="position:static;float:right;margin-bottom:0.4rem;" onclick="copyAnswer(this)">Copy Answer</button>
+          <div style="clear:both;"></div>
+          <div id="answerText"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chunks -->
+    <div class="card" id="chunksCard" style="display:none;">
+      <h2>🧩 Extracted Chunks</h2>
+      <p class="hint">These are the <strong>deduplicated</strong> text snippets that were stored in the vector database.</p>
+      <div id="chunksList" class="chunks-list" style="margin-top:0.5rem;"></div>
+    </div>
+
+    <!-- Embedding Visualizer -->
+    <div class="card">
+      <h2>📊 Embedding Visualizer</h2>
+      <label for="embedText">Enter text to see its embedding vector:</label>
+      <textarea id="embedText" placeholder="e.g. artificial intelligence"></textarea>
+      <p class="hint">This calls the same Ollama embedding model used for the PDF chunks.</p>
+      <br/>
+      <button id="embedBtn" type="button">Generate Embedding</button>
+      <div id="embedOutput" style="margin-top:1rem;"></div>
+    </div>
+  </div>
+
+  <script>
+    const uploadStatusEl = document.getElementById('uploadStatus');
+    const chunksCard = document.getElementById('chunksCard');
+    const chunksList = document.getElementById('chunksList');
+    const dedupStats = document.getElementById('dedupStats');
+    const statUnique = document.getElementById('statUnique');
+    const statRemoved = document.getElementById('statRemoved');
+
+    function setStatus(status, message) {
+      uploadStatusEl.className = 'status ' + status;
+      uploadStatusEl.innerHTML = '<span class="dot"></span> ' + escapeHtml(message);
+    }
+
+    // Poll status every 2 seconds
+    async function pollStatus() {
+      try {
+        const resp = await fetch('/status');
+        const data = await resp.json();
+        setStatus(data.status, data.message);
+        if (data.status === 'completed') {
+          loadChunks();
+          if (data.chunks_count > 0 || data.dedup_count > 0) {
+            dedupStats.style.display = 'flex';
+            statUnique.textContent = data.chunks_count || 0;
+            statRemoved.textContent = data.dedup_count || 0;
+          }
+        }
+      } catch (e) { console.error('Status poll failed', e); }
+    }
+    setInterval(pollStatus, 2000);
+    pollStatus();
+
+    // Upload
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('pdfFile');
+      if (!fileInput.files.length) return;
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      setStatus('processing', 'Uploading & processing...');
+      try {
+        const resp = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || 'Upload failed');
+        if (data.status === 'skipped') {
+          setStatus('completed', '⚡ PDF already processed (skipped duplicate).');
+        } else {
+          setStatus('processing', 'Processing in background...');
+        }
+      } catch (err) {
+        setStatus('error', err.message);
+      }
+    });
+
+    // Load chunks
+    async function loadChunks() {
+      try {
+        const resp = await fetch('/chunks');
+        const data = await resp.json();
+        if (data.count === 0) { chunksCard.style.display = 'none'; return; }
+        chunksCard.style.display = 'block';
+        chunksList.innerHTML = data.chunks.map((c, i) =>
+          `<div class="chunk-item">
+            <button class="copy-btn" onclick="copyText(this)" data-text="${escapeHtml(c).replace(/"/g, '&quot;')}">Copy</button>
+            <span class="chunk-num">Chunk ${i+1}</span>${escapeHtml(c)}
+           </div>`
+        ).join('');
+      } catch (e) { console.error(e); }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    async function copyText(btn) {
+      const text = btn.getAttribute('data-text');
+      try {
+        await navigator.clipboard.writeText(text);
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+      } catch (err) {
+        // Fallback for older browsers
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+      }
+    }
+
+    // Embedding visualizer
+    document.getElementById('embedBtn').addEventListener('click', async () => {
+      const text = document.getElementById('embedText').value.trim();
+      if (!text) return;
+      const out = document.getElementById('embedOutput');
+      out.innerHTML = '<p>Generating embedding...</p>';
+      try {
+        const resp = await fetch('/embed', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({text})
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || 'Failed');
+        const vec = data.vector;
+        const preview = vec.slice(0, 128);
+        const min = Math.min(...preview);
+        const max = Math.max(...preview);
+        const range = max - min || 1;
+        const bars = preview.map(v => {
+          const h = ((v - min) / range) * 100;
+          return `<div class="e-bar" style="height:${h}%;opacity:${0.5 + 0.5*((v-min)/range)}" title="${v.toFixed(5)}"></div>`;
+        }).join('');
+        out.innerHTML = `
+          <p><strong>Dimensions:</strong> ${data.dimensions} &nbsp;|&nbsp; <strong>Model:</strong> Ollama (${escapeHtml(data.text.substring(0,40))}${data.text.length>40?'...':''})</p>
+          <div class="embedding-bars">${bars}</div>
+          <p class="dim-label">Preview of first 128 dimensions &nbsp;•&nbsp; Min: ${min.toFixed(4)} &nbsp; Max: ${max.toFixed(4)}</p>
+          <details style="margin-top:0.6rem;">
+            <summary>Show full vector (JSON)</summary>
+            <pre class="output" style="font-size:0.8rem;">${JSON.stringify(vec, null, 2)}</pre>
+          </details>
+        `;
+      } catch (err) {
+        out.innerHTML = '<p style="color:var(--danger);"><strong>Error:</strong> ' + escapeHtml(err.message) + '</p>';
+      }
+    });
+
+    async function copyAnswer(btn) {
+      const text = document.getElementById('answerText').textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy Answer'; btn.classList.remove('copied'); }, 1500);
+      } catch (err) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy Answer'; btn.classList.remove('copied'); }, 1500);
+      }
+    }
+
+    // Query
+    document.getElementById('queryForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const question = document.getElementById('questionInput').value.trim();
+      if (!question) return;
+      const out = document.getElementById('answerOutput');
+      out.style.display = 'block';
+      out.textContent = 'Querying...';
+      try {
+        const resp = await fetch('/query?question=' + encodeURIComponent(question));
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || 'Query failed');
+        out.textContent = data.answer;
+      } catch (err) {
+        out.textContent = 'Error: ' + err.message;
+      }
+    });
+  </script>
+</body>
+</html>
