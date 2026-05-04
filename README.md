@@ -110,15 +110,15 @@ export OPENAI_API_KEY="sk-..."
 1. **Clone or navigate to the project folder:**
 
 ```bash
-cd /path/to/gptoss_rag
+cd /path/to/dir
 ```
 
 2. **Create and activate a virtual environment:**
 
 ```bash
-python3 -m venv my8env
-source my8env/bin/activate   # Linux/Mac
-# my8env\Scripts\activate   # Windows
+python3 -m venv myenv
+source myenv/bin/activate   # Linux/Mac
+# myenv\Scripts\activate   # Windows
 ```
 
 3. **Install dependencies:**
@@ -387,7 +387,7 @@ gptoss_rag/
 
 ---
 
-MIT License
+##  MIT License
 
 Copyright (c) 2026 George Pantelis
 
