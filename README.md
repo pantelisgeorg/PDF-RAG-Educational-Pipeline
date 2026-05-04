@@ -389,6 +389,8 @@ gptoss_rag/
 
 ##  MIT License
 
+Copyright (c) 2026 George Pantelis
+
 This project is provided for **educational purposes**. Feel free to fork, modify, and use it in classrooms, workshops, or personal learning.
 
 ---
